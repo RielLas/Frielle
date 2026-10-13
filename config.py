@@ -62,7 +62,7 @@ GEMINI_API_KEYS: List[str] = [k.strip() for k in raw_keys.split(",") if k.strip(
 if GEMINI_API_KEY and GEMINI_API_KEY not in GEMINI_API_KEYS:
     GEMINI_API_KEYS.insert(0, GEMINI_API_KEY)
 
-DEFAULT_MODEL: str = os.getenv("DEFAULT_MODEL", ai_settings.get("default_model", "gemini-3.5-flash-lite"))
+DEFAULT_MODEL: str = ai_settings.get("default_model", "gemini-3.5-flash-lite")
 FALLBACK_MODELS: List[str] = ai_settings.get("fallback_models", [
     "gemini-3.1-flash-lite",
     "gemini-flash-lite-latest",

@@ -116,6 +116,50 @@ class TestRazielTiers(unittest.TestCase):
         self.assertEqual(mode, "ciel_interplay")
         self.assertIn("CIEL SIBLING INTERPLAY", instruction)
 
+    def test_dynamic_privilege_role_and_user_resolution(self):
+        import asyncio
+        async def run_test():
+            # Add dynamic role to sister tier
+            await self.tier_manager.add_privilege(
+                db=None,
+                target_id="987654321",
+                target_type="role",
+                target_name="Sanctuary Princess",
+                tier="sister",
+                granted_by_id="575745179202355211",
+                granted_by_name="tenkariel",
+                reason="Sisterly love"
+            )
+            role = MockRole(987654321, "Sanctuary Princess")
+            user = MockUser(123456789, "flutter_friend", roles=[role])
+            tier, label, badge = self.tier_manager.resolve_tier(user)
+            self.assertEqual(tier, "sister")
+            self.assertEqual(badge, "[CREATOR'S SISTER]")
+
+            # Add dynamic user to duchess tier
+            await self.tier_manager.add_privilege(
+                db=None,
+                target_id="333444555",
+                target_type="user",
+                target_name="Lady Violet",
+                tier="duchess",
+                granted_by_id="575745179202355211",
+                granted_by_name="tenkariel",
+                reason="High court peer"
+            )
+            duchess_user = MockUser(333444555, "violet")
+            tier, _, badge = self.tier_manager.resolve_tier(duchess_user)
+            self.assertEqual(tier, "duchess")
+            self.assertEqual(badge, "[ESTEEMED DUCHESS]")
+            self.assertEqual(self.tier_manager.get_privilege_reason("333444555"), "High court peer")
+
+            # Remove privilege
+            await self.tier_manager.remove_privilege(db=None, target_id="333444555")
+            tier, _, badge = self.tier_manager.resolve_tier(duchess_user)
+            self.assertEqual(tier, "general")
+
+        asyncio.run(run_test())
+
 
 if __name__ == "__main__":
     unittest.main()

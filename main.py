@@ -64,8 +64,10 @@ async def on_ready():
 
 
 async def main():
-    # Initialize database connection asynchronously
+    # Initialize database connection asynchronously (shared with Ciel)
     await bot.memory.init_database()
+    if bot.memory.db is not None:
+        await bot.tier_manager.sync_privileges_from_db(bot.memory.db)
 
     async with bot:
         for ext in INITIAL_EXTENSIONS:
