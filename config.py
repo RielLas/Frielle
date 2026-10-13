@@ -10,7 +10,7 @@ import logging
 from typing import List, Dict, Any
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(override=True)
 
 logger = logging.getLogger("Raziel.Config")
 CONFIG_FILE = os.path.join(os.path.dirname(__file__), "config.json")
@@ -36,8 +36,9 @@ CONFIG_DATA = load_config()
 # ---------------------------------------------------------------------------
 DISCORD_TOKEN: str = os.getenv("DISCORD_TOKEN", "") or os.getenv("RAZIEL_BOT_TOKEN", "")
 bot_settings = CONFIG_DATA.get("bot_settings", {})
-COMMAND_PREFIX: str = os.getenv("COMMAND_PREFIX", bot_settings.get("command_prefix", "r!"))
-CIEL_BOT_ID: int = int(os.getenv("CIEL_BOT_ID", str(bot_settings.get("ciel_bot_id", 1502685311568707686))))
+COMMAND_PREFIX: str = str(bot_settings.get("command_prefix", "r!"))
+CIEL_BOT_ID: int = int(os.getenv("CIEL_BOT_ID", str(bot_settings.get("ciel_bot_id", 1502567501555568680))))
+CIEL_BOT_IDS = {CIEL_BOT_ID, 1502567501555568680, 1502685311568707686}
 MASTER_RIEL_ID: int = int(os.getenv("MASTER_RIEL_ID", "575745179202355211"))
 
 # ---------------------------------------------------------------------------

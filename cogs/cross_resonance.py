@@ -8,7 +8,9 @@ import time
 import random
 import logging
 import discord
-from config import CIEL_BOT_ID, CROSS_BOT_COOLDOWN_SECONDS, CROSS_BOT_CHANCE
+from discord.ext import commands
+from config import CIEL_BOT_IDS, CROSS_BOT_COOLDOWN_SECONDS, CROSS_BOT_CHANCE
+from raziel_core.personality import detect_mode
 from raziel_core.ai_engine import GeminiEngine
 from raziel_core.memory import MemoryManager
 
@@ -32,27 +34,40 @@ class CrossResonanceCog(commands.Cog):
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
         """Detects messages sent by Ciel in community channels."""
-        # Only listen to Ciel
-        if message.author.id != CIEL_BOT_ID:
+        # Ignore own messages
+        if message.author.id == self.bot.user.id:
             return
 
-        # Do not process DMs or system messages
-        if not message.guild or not isinstance(message.channel, discord.TextChannel):
+        # Check if Ciel
+        if message.author.id not in CIEL_BOT_IDS:
+            return
+
+        logger.info(f"Detected Ciel message in #{getattr(message.channel, 'name', 'unknown')}: {message.clean_content[:50]}")
+
+        # Do not process DMs
+        if not message.guild:
             return
 
         now = time.time()
-        # Enforce strict cooldown between unprompted sibling interactions
-        if (now - self.last_cross_bot_interaction) < CROSS_BOT_COOLDOWN_SECONDS:
-            return
+        is_mentioned = self.bot.user in message.mentions
 
-        ciel_text = message.clean_content.lower()
+        if not is_mentioned:
+            # Enforce strict cooldown between unprompted sibling interactions
+            if (now - self.last_cross_bot_interaction) < CROSS_BOT_COOLDOWN_SECONDS:
+                return
 
-        # Check if Ciel is being particularly intense/stern
-        is_intense = any(word in ciel_text for word in CIEL_INTENSITY_TRIGGERS)
+            ciel_text = message.clean_content.lower()
 
-        # If not intense, apply random participation chance
-        if not is_intense and random.random() > CROSS_BOT_CHANCE:
-            return
+            # Check if Ciel is being particularly intense/stern
+            is_intense = any(word in ciel_text for word in CIEL_INTENSITY_TRIGGERS)
+
+            # If not intense, apply random participation chance
+            if not is_intense and random.random() > CROSS_BOT_CHANCE:
+                return
+        else:
+            # Short 5s debounce for direct pings to prevent loop recursion
+            if (now - self.last_cross_bot_interaction) < 5:
+                return
 
         # Set debounce timer immediately
         self.last_cross_bot_interaction = now

@@ -51,6 +51,9 @@ class GeminiEngine:
         self.api_keys = api_keys or GEMINI_API_KEYS
         self.model = default_model
         self.fallback_models = fallback_models or FALLBACK_MODELS
+        # Pre-warm client cache to prevent Gateway heartbeat lag on first call
+        for k in self.api_keys:
+            self._get_client(k)
 
     def _get_active_keys(self) -> List[str]:
         now = time.time()

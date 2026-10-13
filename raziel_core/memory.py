@@ -47,7 +47,7 @@ class MemoryManager:
 
         try:
             from motor.motor_asyncio import AsyncIOMotorClient
-            self.db_client = AsyncIOMotorClient(MONGO_URI, serverSelectionTimeoutMS=4000)
+            self.db_client = AsyncIOMotorClient(MONGO_URI, serverSelectionTimeoutMS=10000)
             self.db = self.db_client[DB_NAME]
             self.collection = self.db[COGNITIVE_COLLECTION]
 

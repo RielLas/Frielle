@@ -86,7 +86,7 @@ class RazielCommandsCog(commands.Cog):
     # Cross-Bot Synchronized Privilege Administration (/ciel group)
     # Synced live across both Ciel & Raziel via shared ciel_privileges collection
     # ---------------------------------------------------------------------------
-    ciel_group = app_commands.Group(name="ciel", description="Shared Ciel & Raziel database & tier privilege suite")
+    raziel_group = app_commands.Group(name="raziel", description="Direct Raziel database & tier privilege suite")
     setup_group = app_commands.Group(name="setup", description="Sanctuary configuration and tier setup suite")
 
     async def _handle_role_add_id(
@@ -143,7 +143,7 @@ class RazielCommandsCog(commands.Cog):
         embed.set_footer(text="MongoDB Atlas // Shared Cluster Synced")
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
-    @ciel_group.command(name="roleadd_id", description="Assign a permanent tier to a role ID or user ID (synced with Ciel).")
+    @raziel_group.command(name="roleadd_id", description="Assign a permanent tier to a role ID or user ID (synced with Ciel).")
     @app_commands.describe(
         target_id="The Discord Role ID or User ID",
         target_type="Whether the target is a role or user",
@@ -151,7 +151,7 @@ class RazielCommandsCog(commands.Cog):
         target_name="Optional readable name for this role/user",
         reason="Reason or deal note for this privilege"
     )
-    async def ciel_roleadd_id(
+    async def raziel_roleadd_id(
         self,
         interaction: discord.Interaction,
         target_id: str,
@@ -181,9 +181,9 @@ class RazielCommandsCog(commands.Cog):
     ):
         await self._handle_role_add_id(interaction, target_id, target_type, tier, target_name, reason)
 
-    @ciel_group.command(name="role_remove", description="Revoke permanent tier privileges from an ID (synced with Ciel).")
+    @raziel_group.command(name="role_remove", description="Revoke permanent tier privileges from an ID (synced with Ciel).")
     @app_commands.describe(target_id="The Discord Role ID or User ID to remove")
-    async def ciel_role_remove(self, interaction: discord.Interaction, target_id: str):
+    async def raziel_role_remove(self, interaction: discord.Interaction, target_id: str):
         if not self._is_authorized(interaction.user):
             await interaction.response.send_message("`[UNAUTHORIZED]` Only Riel or Sovereign First Lady may modify tiers.", ephemeral=True)
             return
@@ -197,8 +197,8 @@ class RazielCommandsCog(commands.Cog):
         )
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
-    @ciel_group.command(name="role_list", description="List all dynamic privileges currently active in MongoDB Atlas.")
-    async def ciel_role_list(self, interaction: discord.Interaction):
+    @raziel_group.command(name="role_list", description="List all dynamic privileges currently active in MongoDB Atlas.")
+    async def raziel_role_list(self, interaction: discord.Interaction):
         # Refresh from DB
         await self.tiers.sync_privileges_from_db(self.memory.db)
         dyn = self.tiers.dynamic_privileges
