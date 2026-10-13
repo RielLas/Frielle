@@ -1,7 +1,8 @@
 """
 main.py
 Core entry point for Project Raziel.
-Initializes Discord client, mounts Gemini Flash-Lite AI engine, and boots cogs.
+Initializes Discord client, mounts Gemini Flash-Lite AI engine,
+Tier Manager, MongoDB/Local memory subsystems, and boots cogs.
 """
 
 import sys
@@ -13,6 +14,7 @@ from discord.ext import commands
 from config import DISCORD_TOKEN, COMMAND_PREFIX, DEFAULT_MODEL, GEMINI_API_KEYS
 from raziel_core.ai_engine import GeminiEngine
 from raziel_core.memory import MemoryManager
+from raziel_core.tiers import TierManager
 
 # Logging setup
 logging.basicConfig(
@@ -30,9 +32,10 @@ intents.guilds = True
 
 bot = commands.Bot(command_prefix=COMMAND_PREFIX, intents=intents, help_command=None)
 
-# Attach Core AI & Memory subsystems to bot instance
+# Attach Core AI, Tier, & Memory subsystems to bot instance
 bot.ai_engine = GeminiEngine(api_keys=GEMINI_API_KEYS, default_model=DEFAULT_MODEL)
 bot.memory = MemoryManager()
+bot.tier_manager = TierManager()
 
 INITIAL_EXTENSIONS = [
     "cogs.companion",
@@ -47,7 +50,9 @@ async def on_ready():
     logger.info("=" * 60)
     logger.info(f"✨ PROJECT RAZIEL ONLINE // Logged in as: {bot.user} (ID: {bot.user.id})")
     logger.info(f"🧠 AI Engine: Gemini ({bot.ai_engine.model}) | Keys Loaded: {len(bot.ai_engine.api_keys)}")
-    logger.info(f"🛡️ Safe Harbor & Cross-Bot Resonance Active")
+    db_mode = "MongoDB Atlas" if bot.memory.collection is not None else "Local JSON"
+    logger.info(f"💾 Memory Subsystem: {db_mode}")
+    logger.info("🛡️ Safe Harbor, Tier Matrix & Cross-Bot Resonance Active")
 
     try:
         synced = await bot.tree.sync()
@@ -59,6 +64,9 @@ async def on_ready():
 
 
 async def main():
+    # Initialize database connection asynchronously
+    await bot.memory.init_database()
+
     async with bot:
         for ext in INITIAL_EXTENSIONS:
             try:

@@ -1,7 +1,8 @@
 """
 cogs/companion.py
 Primary conversational listener for Project Raziel.
-Handles mentions, replies, DMs, natural typing indicators, and Safe Harbor routing.
+Handles pure mentions, message replies, DMs, natural typing indicators,
+tiered dynamics, and Safe Harbor routing.
 """
 
 import logging
@@ -10,6 +11,7 @@ from discord.ext import commands
 from raziel_core.personality import detect_mode
 from raziel_core.ai_engine import GeminiEngine
 from raziel_core.memory import MemoryManager
+from raziel_core.tiers import TierManager
 
 logger = logging.getLogger("Raziel.Companion")
 
@@ -17,10 +19,17 @@ logger = logging.getLogger("Raziel.Companion")
 class CompanionCog(commands.Cog):
     """Core companion interaction listener."""
 
-    def __init__(self, bot: commands.Bot, ai_engine: GeminiEngine, memory: MemoryManager):
+    def __init__(
+        self,
+        bot: commands.Bot,
+        ai_engine: GeminiEngine,
+        memory: MemoryManager,
+        tier_manager: TierManager
+    ):
         self.bot = bot
         self.ai = ai_engine
         self.memory = memory
+        self.tiers = tier_manager
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
@@ -37,7 +46,7 @@ class CompanionCog(commands.Cog):
             if isinstance(resolved, discord.Message) and resolved.author.id == self.bot.user.id:
                 is_reply = True
 
-        # Only process if directly addressed or in DM
+        # Only process if directly addressed or in DM (like Ciel)
         if not (is_dm or is_mentioned or is_reply):
             return
 
@@ -48,8 +57,13 @@ class CompanionCog(commands.Cog):
         context_key = f"dm_{message.author.id}" if is_dm else f"ch_{message.channel.id}"
         author_display = message.author.display_name
 
-        # Detect tone mode (Safe Harbor vs Public Banter)
-        mode, system_instruction = detect_mode(clean_content)
+        # Resolve member's tier
+        tier_key, tier_label, tier_badge = self.tiers.resolve_tier(message.author)
+
+        # Detect tone mode (Safe Harbor vs Public Banter) incorporating tier context
+        mode, system_instruction = detect_mode(clean_content, user_tier=tier_key)
+
+        prompt_parts = []
 
         # Retrieve stored user profile & affinity
         user_summary = self.memory.get_user_profile_summary(message.author.id)
@@ -61,10 +75,12 @@ class CompanionCog(commands.Cog):
         if history_str:
             prompt_parts.append(f"=== RECENT CONVERSATION CONTEXT ===\n{history_str}\n")
 
+        channel_desc = "Direct Message (Private Safe Harbor)" if is_dm else f"#{message.channel.name}"
         prompt_parts.append(
             f"=== CURRENT MESSAGE ===\n"
-            f"User: {author_display} (ID: {message.author.id})\n"
-            f"Channel: {'Direct Message (Private Safe Harbor)' if is_dm else message.channel.name}\n"
+            f"Author: {author_display} (ID: {message.author.id})\n"
+            f"Standing: {tier_badge} - {tier_label}\n"
+            f"Channel: {channel_desc}\n"
             f"Message: {clean_content}\n\n"
             f"Respond as Raziel directly to {author_display}."
         )
@@ -104,8 +120,11 @@ class CompanionCog(commands.Cog):
 async def setup(bot: commands.Bot):
     ai_engine = getattr(bot, "ai_engine", None)
     memory = getattr(bot, "memory", None)
+    tier_manager = getattr(bot, "tier_manager", None)
     if not ai_engine:
         ai_engine = GeminiEngine()
     if not memory:
         memory = MemoryManager()
-    await bot.add_cog(CompanionCog(bot, ai_engine, memory))
+    if not tier_manager:
+        tier_manager = TierManager()
+    await bot.add_cog(CompanionCog(bot, ai_engine, memory, tier_manager))

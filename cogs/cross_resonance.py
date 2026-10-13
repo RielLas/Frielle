@@ -8,9 +8,7 @@ import time
 import random
 import logging
 import discord
-from discord.ext import commands
-from config import CIEL_BOT_ID, CROSS_BOT_COOLDOWN_SECONDS, CROSS_BOT_CHANCE, CHANNEL_THE_VOID
-from raziel_core.personality import detect_mode
+from config import CIEL_BOT_ID, CROSS_BOT_COOLDOWN_SECONDS, CROSS_BOT_CHANCE
 from raziel_core.ai_engine import GeminiEngine
 from raziel_core.memory import MemoryManager
 

@@ -30,21 +30,28 @@ def create_safe_harbor_embed(
     return embed
 
 
-def create_dossier_embed(
+def create_profile_embed(
     user: discord.User,
+    tier_label: str,
+    tier_badge: str,
     affinity: int,
     notes: Dict[str, str],
     recent_topics: List[str]
 ) -> discord.Embed:
-    """Generates an aesthetic user connection card."""
+    """Generates an aesthetic member connection and profile card."""
     embed = discord.Embed(
-        title=f"╭・୨ CONNECTION DOSSIER ୧",
+        title="╭・୨ MEMBER PROFILE ୧",
         description=f"> *\"I remember every conversation that passes through the harbor.\"*\n\nMember: **{user.display_name}** (`@{user.name}`)",
         color=COLOR_PLATINUM
     )
     embed.set_thumbnail(url=user.display_avatar.url)
     embed.add_field(
-        name="[AFFINITY TIER]",
+        name="[TIER STANDING]",
+        value=f"**{tier_badge}**\n`{tier_label}`",
+        inline=True
+    )
+    embed.add_field(
+        name="[CONNECTION LEVEL]",
         value=f"`{affinity} Interactions`",
         inline=True
     )
@@ -52,11 +59,11 @@ def create_dossier_embed(
         embed.add_field(
             name="[SHARED TOPICS]",
             value=" • ".join(f"`{t}`" for t in recent_topics[:4]),
-            inline=True
+            inline=False
         )
     if notes:
         note_str = "\n".join(f"• **{k}**: `{v}`" for k, v in list(notes.items())[:5])
-        embed.add_field(name="[OBSERVATIONS]", value=note_str, inline=False)
+        embed.add_field(name="[RECORDED ARCHIVES]", value=note_str, inline=False)
 
     embed.set_footer(text="Project Raziel // The Safe Harbor of Wonderland")
     return embed
@@ -68,10 +75,10 @@ def create_about_embed() -> discord.Embed:
         "> ❝ *The secret is not in the stars, but in having someone who listens.* ❞ ₊˚✧\n\n"
         "I am **Raziel** — Keeper of Mysteries and the Safe Harbor of Wonderland.\n\n"
         "╭・✦ ﹕ **SANCTUARY ROLES**\n"
-        "┊ `[PUBLIC]` : Banter, casual conversations, and creative discussions in <#1491530690557378612>.\n"
+        "┊ `[PUBLIC]` : Banter, casual conversations, and creative discussions in server chat.\n"
         "┊ `[HARBOR]` : Private listening, quiet reassurance, and late-night venting in DMs.\n"
         "┊ `[COUNCIL]` : Keeping Ciel from overcooking her circuits or erasing the inhabitants.\n"
-        "╰・✦ ﹕ Zero judgments, zero unprompted advice. Talk to me anytime."
+        "╰・✦ ﹕ Zero judgments, zero unprompted advice. Ping me or reply anytime."
     )
     embed = discord.Embed(
         title="╭・✦ ﹕ 𝒫𝓇𝑜𝒿𝑒𝒸𝓉 𝑅𝒶𝓏𝒾𝑒𝓁 ₊˚✧",
