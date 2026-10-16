@@ -6,6 +6,7 @@ Mirrors the high-throughput, token-efficient architecture of Ciel.
 
 import re
 import time
+import asyncio
 import logging
 from typing import List, Optional, Any, Dict
 from config import DEFAULT_MODEL, FALLBACK_MODELS, GEMINI_API_KEYS
@@ -16,12 +17,26 @@ _KEY_COOLDOWNS: Dict[str, float] = {}
 _CLIENT_CACHE: Dict[str, Any] = {}
 
 
-def strip_thinking(text: str) -> str:
-    """Strips thinking blocks if emitted by reasoning models."""
+def clean_discord_output(text: str) -> str:
+    """Strips thinking blocks, stage directions/asterisks roleplay, and quotes while preserving markdown formatting."""
     if not text:
         return ""
     text = re.sub(r"<thought>.*?</thought>", "", text, flags=re.DOTALL)
     text = re.sub(r"```thinking.*?```", "", text, flags=re.DOTALL)
+    # Strip parenthesized stage directions like *(smiles)* or *(chuckles)*
+    text = re.sub(r"\*\([^)]+\)\*", "", text)
+    # Strip unparenthesized roleplay actions (e.g. *smiles*, *laughs*, *sighs*) while preserving single italicized words
+    roleplay_verbs = r"(?:smiles|chuckles|laughs|sighs|grins|winks|nods|pauses|shrugs|waves|rolls eyes|leans in)"
+    text = re.sub(rf"^\*{roleplay_verbs}[^*]*\*\s*", "", text, flags=re.IGNORECASE)
+    text = re.sub(rf"\s*\*{roleplay_verbs}[^*]*\*$", "", text, flags=re.IGNORECASE)
+    text = text.strip()
+    # Strip surrounding quotation marks if dialogue is quoted
+    if (text.startswith('"') and text.endswith('"')) or (text.startswith("'") and text.endswith("'")):
+        text = text[1:-1].strip()
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    # Strip formal trailing period on casual single-line messages to sound like authentic Discord texting
+    if "\n" not in text and text.endswith(".") and not text.endswith(".."):
+        text = text[:-1].strip()
     return text.strip()
 
 
@@ -85,7 +100,7 @@ class GeminiEngine:
         """
         keys = self._get_active_keys()
         if not keys:
-            return "*(Raziel tilts his head with an amused sigh)* Looks like my mind is momentarily unplugged. Give me a second, sweetheart."
+            return "looks like my connection's momentarily unplugged, give me a second."
 
         candidate_models = [self.model] + [m for m in self.fallback_models if m != self.model]
 
@@ -105,39 +120,51 @@ class GeminiEngine:
                     config = {"system_instruction": system_instruction, "temperature": temperature}
 
                 try:
-                    if hasattr(client, "aio") and hasattr(client.aio, "models"):
-                        res = client.aio.models.generate_content(
-                            model=model_name,
-                            contents=[prompt],
-                            config=config
-                        )
-                        if hasattr(res, "__await__"):
-                            res = await res
-                    elif hasattr(client, "models"):
-                        res = client.models.generate_content(
-                            model=model_name,
-                            contents=[prompt],
-                            config=config
-                        )
-                        if hasattr(res, "__await__"):
-                            res = await res
-                    else:
-                        res = client.generate_content(
-                            model=model_name,
-                            contents=[prompt],
-                            config=config
-                        )
-                        if hasattr(res, "__await__"):
-                            res = await res
+                    async def _call():
+                        if hasattr(client, "aio") and hasattr(client.aio, "models"):
+                            call_res = client.aio.models.generate_content(
+                                model=model_name,
+                                contents=[prompt],
+                                config=config
+                            )
+                            if hasattr(call_res, "__await__"):
+                                return await call_res
+                            return call_res
+                        elif hasattr(client, "models"):
+                            # Protect Discord Gateway heartbeat by offloading sync call to thread pool
+                            loop = asyncio.get_running_loop()
+                            return await loop.run_in_executor(
+                                None,
+                                lambda: client.models.generate_content(
+                                    model=model_name,
+                                    contents=[prompt],
+                                    config=config
+                                )
+                            )
+                        else:
+                            loop = asyncio.get_running_loop()
+                            return await loop.run_in_executor(
+                                None,
+                                lambda: client.generate_content(
+                                    model=model_name,
+                                    contents=[prompt],
+                                    config=config
+                                )
+                            )
 
-                    raw_text = getattr(res, "text", "") or ""
-                    cleaned = strip_thinking(raw_text)
+                    res = await asyncio.wait_for(_call(), timeout=9.0)
+                    try:
+                        raw_text = getattr(res, "text", "") or ""
+                    except Exception:
+                        raw_text = ""
+
+                    cleaned = clean_discord_output(raw_text)
                     if cleaned:
-                        if self.model != model_name:
-                            logger.info(f"Switched default active model to '{model_name}'.")
-                            self.model = model_name
                         return cleaned
 
+                except asyncio.TimeoutError:
+                    logger.warning(f"Model '{model_name}' timed out after 9.0s. Trying next fallback.")
+                    continue
                 except Exception as err:
                     if is_rate_limited(err):
                         logger.warning(f"Key ending in ...{key[-4:]} hit rate limit on '{model_name}'. Cooling down 60s.")
@@ -147,4 +174,4 @@ class GeminiEngine:
                         logger.warning(f"Model '{model_name}' failed with error: {err}. Trying next fallback.")
                         continue
 
-        return "*(Raziel offers a gentle, apologetic grin)* My connection flickered for a second there. Mind saying that again?"
+        return "my connection lagged for a sec, my bad. what was that?"

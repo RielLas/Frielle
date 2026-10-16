@@ -2,7 +2,7 @@
   "bot_settings": {
     "command_prefix": "r!",
     "ciel_bot_id": 1502567501555568680,
-    "cross_bot_cooldown_seconds": 180,
+    "cross_bot_cooldown_seconds": 3600,
     "cross_bot_chance": 0.35,
     "max_memory_turns": 15
   },

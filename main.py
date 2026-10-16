@@ -6,6 +6,7 @@ Tier Manager, MongoDB/Local memory subsystems, and boots cogs.
 """
 
 import sys
+import socket
 import asyncio
 import logging
 import discord
@@ -24,6 +25,20 @@ logging.basicConfig(
 )
 logger = logging.getLogger("Raziel.Main")
 
+# Single instance lock (port 49842 based on bot discriminator #4984)
+_instance_lock_socket = None
+
+
+def acquire_instance_lock(port: int = 49842):
+    global _instance_lock_socket
+    try:
+        _instance_lock_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        _instance_lock_socket.bind(("127.0.0.1", port))
+        _instance_lock_socket.listen(1)
+    except OSError:
+        logger.error(f"Duplicate instance detected! Another Raziel process is already running on 127.0.0.1:{port}.")
+        sys.exit(1)
+
 # Intents configuration
 intents = discord.Intents.default()
 intents.message_content = True
@@ -36,6 +51,7 @@ bot = commands.Bot(command_prefix=COMMAND_PREFIX, intents=intents, help_command=
 bot.ai_engine = GeminiEngine(api_keys=GEMINI_API_KEYS, default_model=DEFAULT_MODEL)
 bot.memory = MemoryManager()
 bot.tier_manager = TierManager()
+bot.tiers = bot.tier_manager
 
 INITIAL_EXTENSIONS = [
     "cogs.companion",
@@ -87,6 +103,7 @@ async def main():
 
 
 if __name__ == "__main__":
+    acquire_instance_lock()
     try:
         asyncio.run(main())
     except KeyboardInterrupt:

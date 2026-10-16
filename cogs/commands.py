@@ -71,8 +71,13 @@ class RazielCommandsCog(commands.Cog):
     @app_commands.command(name="remember", description="Tell Raziel a detail or preference to remember about you.")
     @app_commands.describe(key="The topic or trait (e.g. 'favorite anime', 'hobbies', 'timezone')", value="The detail to remember")
     async def remember_cmd(self, interaction: discord.Interaction, key: str, value: str):
-        clean_key = key.strip().title()
-        clean_val = value.strip()
+        # Sanitize against delimiter injection and enforce length limits
+        clean_key = key.replace("===", "").replace("[CONTEXT", "").replace("\n", " ").strip()[:32].title()
+        clean_val = value.replace("===", "").replace("[CONTEXT", "").replace("\n", " ").strip()[:120]
+        if not clean_key or not clean_val:
+            await interaction.response.send_message("Please provide a valid detail to remember.", ephemeral=True)
+            return
+
         self.memory.update_user_note(interaction.user.id, clean_key, clean_val)
 
         embed = create_safe_harbor_embed(

@@ -11,10 +11,10 @@ from discord.ext import commands, tasks
 logger = logging.getLogger("Raziel.Presence")
 
 STATUS_ROTATION = [
-    ("watching over the sanctuary | DM for a quiet ear", discord.ActivityType.watching),
-    ("keeping Ciel from overcooking her circuits", discord.ActivityType.playing),
-    ("listening to the void", discord.ActivityType.listening),
-    ("saving chat from the ban hammer", discord.ActivityType.competing)
+    ("chilling | mention or DM me", discord.ActivityType.watching),
+    ("keeping my big sis Ciel from banning everyone", discord.ActivityType.playing),
+    ("listening to chat chaos", discord.ActivityType.listening),
+    ("teasing Ciel", discord.ActivityType.playing)
 ]
 
 
@@ -25,9 +25,11 @@ class PresenceCog(commands.Cog):
         self.bot = bot
         self.index = 0
         self.rotate_status.start()
+        self.sync_privileges.start()
 
     def cog_unload(self):
         self.rotate_status.cancel()
+        self.sync_privileges.cancel()
 
     @tasks.loop(minutes=15)
     async def rotate_status(self):
@@ -45,6 +47,22 @@ class PresenceCog(commands.Cog):
 
     @rotate_status.before_loop
     async def before_rotate(self):
+        await self.bot.wait_until_ready()
+
+    @tasks.loop(minutes=5)
+    async def sync_privileges(self):
+        """Periodically syncs dynamic privileges from MongoDB ciel_privileges to catch updates from Ciel."""
+        await self.bot.wait_until_ready()
+        try:
+            tm = getattr(self.bot, "tier_manager", getattr(self.bot, "tiers", None))
+            if tm and hasattr(self.bot, "memory") and self.bot.memory.db is not None:
+                count = await tm.sync_privileges_from_db(self.bot.memory.db)
+                logger.info(f"Periodic privilege sync refreshed {count} privileges from ciel_privileges.")
+        except Exception as e:
+            logger.warning(f"Error in periodic privilege sync: {e}")
+
+    @sync_privileges.before_loop
+    async def before_sync(self):
         await self.bot.wait_until_ready()
 
 
