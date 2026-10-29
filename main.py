@@ -5,7 +5,15 @@ Initializes Discord client, mounts Gemini Flash-Lite AI engine,
 Tier Manager, MongoDB/Local memory subsystems, and boots cogs.
 """
 
+import os
 import sys
+from pathlib import Path
+
+# Ensure root directory is strictly on Python path regardless of working directory
+ROOT_DIR = Path(__file__).resolve().parent
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+
 import socket
 import asyncio
 import logging
