@@ -15,6 +15,11 @@ from raziel_core.ai_engine import GeminiEngine
 from raziel_core.memory import MemoryManager
 from raziel_core.tiers import TierManager
 
+import aiohttp
+from cogs._attachments import extract_attachment_text, _IMAGE_ATTACHMENT_EXTS, _TEXT_ATTACHMENT_EXTS
+from cogs._ai_search import looks_fact_based, is_explicit_search, distill_query, web_search_summary
+from cogs._ai_tools import execute_agent_tool
+
 logger = logging.getLogger("Raziel.Companion")
 
 
@@ -98,12 +103,73 @@ class CompanionCog(commands.Cog):
         # Detect tone mode (Safe Harbor vs Public Banter) incorporating tier context
         mode, system_instruction = detect_mode(clean_content, user_tier=tier_key)
 
+        # Process attachments (images & text documents)
+        image_payloads = []
+        attachment_texts = []
+        if message.attachments:
+            async with aiohttp.ClientSession() as session:
+                for att in message.attachments[:3]:
+                    fname = att.filename.lower()
+                    try:
+                        async with session.get(att.url, timeout=10) as resp:
+                            if resp.status == 200:
+                                att_data = await resp.read()
+                                if any(fname.endswith(ext) for ext in _IMAGE_ATTACHMENT_EXTS):
+                                    mime = att.content_type or ("image/gif" if fname.endswith(".gif") else "image/jpeg")
+                                    image_payloads.append({"data": att_data, "mime_type": mime})
+                                elif any(fname.endswith(ext) for ext in _TEXT_ATTACHMENT_EXTS):
+                                    parsed = extract_attachment_text(att.filename, att_data)
+                                    if parsed:
+                                        attachment_texts.append(f"[ATTACHMENT: {att.filename}]\n{parsed}")
+                    except Exception as att_err:
+                        logger.warning(f"Failed fetching attachment {att.filename}: {att_err}")
+
+        # Passive or explicit web search grounding
+        grounded_context = ""
+        if is_explicit_search(clean_content) or (looks_fact_based(clean_content) and not is_dm):
+            dq = distill_query(clean_content)
+            if dq:
+                grounded_context = await web_search_summary(dq)
+
         prompt_parts = []
 
-        # Retrieve stored user profile & affinity
-        user_summary = self.memory.get_user_profile_summary(message.author.id)
+        if grounded_context:
+            prompt_parts.append(f"=== GROUNDED INTEL & WEB SEARCH ===\n{grounded_context}\n")
+
+        if attachment_texts:
+            prompt_parts.append(f"=== ATTACHMENT EXCERPTS ===\n" + "\n\n".join(attachment_texts) + "\n")
+
+        # Retrieve stored user profile & affinity (including Ciel's shared cognitive archive)
+        ciel_memories = await self.memory.get_ciel_profile(message.author.id)
+        user_summary = self.memory.get_user_profile_summary(message.author.id, ciel_memories=ciel_memories)
         if user_summary:
             prompt_parts.append(f"=== STORED KNOWLEDGE OF USER ===\n{user_summary}\n")
+
+        # Resonant Neural Synapses activation
+        if hasattr(self.bot, "synapse_mesh") and self.bot.synapse_mesh:
+            try:
+                recent_turns = [t.get("content", "") for t in self.memory.get_history(context_key)[-5:]]
+                spikes = self.bot.synapse_mesh.resolve_spikes(
+                    clean_content,
+                    owner_id=str(message.author.id),
+                    recent_transcript=recent_turns
+                )
+                if spikes:
+                    synapse_facts = [f"- [{s.canonical.upper()}]: {s.remark}" for s in spikes if s.remark]
+                    if synapse_facts:
+                        prompt_parts.append(f"=== RESONANT MEMORY SYNAPSES ===\n" + "\n".join(synapse_facts) + "\n")
+            except Exception as syn_err:
+                logger.debug(f"Synapse activation skipped: {syn_err}")
+
+        # Active Narrative Threads & life callbacks
+        if hasattr(self.bot, "narrative_engine") and self.bot.narrative_engine:
+            try:
+                threads = await self.bot.narrative_engine.get_active_threads(str(message.author.id), limit=2)
+                if threads:
+                    th_lines = [f"- {t.title}: {t.summary}" for t in threads]
+                    prompt_parts.append(f"=== ACTIVE LIFE THREADS & TOPICS ===\n" + "\n".join(th_lines) + "\n")
+            except Exception as narr_err:
+                logger.debug(f"Narrative retrieval skipped: {narr_err}")
 
         # Retrieve conversational history buffer
         history_str = self.memory.format_history_for_prompt(context_key)
@@ -116,12 +182,13 @@ class CompanionCog(commands.Cog):
             f"Author: {author_display} (ID: {message.author.id})\n"
             f"Standing: {tier_badge} - {tier_label}\n"
             f"Channel: {channel_desc}\n"
-            f"Respond naturally in character as Raziel (1-2 punchy sentences max).\n"
+            f"Respond naturally in character as Frielle (1-2 punchy sentences max).\n"
+            f"- Carefree Noble Lady: Poised, warm, witty, and effortlessly aristocratic.\n"
             f"- Speak directly 1-on-1. NEVER address a crowd or talk to 'everyone'.\n"
             f"- Do NOT repeat the user's name if you are already mid-conversation.\n"
-            f"- Do NOT compulsively end with an interview question. Let reactions and witty observations stand on their own.\n"
-            f"- NO robotic therapist reflections. React with authentic wit, charisma, and relaxed presence.\n"
-            f"- NO asterisks, NO 'bro', NO rude internet slang."
+            f"- Do NOT compulsively end with an interview question. Let reactions and observations stand on their own.\n"
+            f"- NO robotic therapist reflections. React with genuine poise and warmth.\n"
+            f"- NO asterisks (*sips tea*), NO 'bro', NO rude internet slang."
         )
 
         full_prompt = "\n".join(prompt_parts)
@@ -132,13 +199,14 @@ class CompanionCog(commands.Cog):
                 reply = await self.ai.generate(
                     prompt=full_prompt,
                     system_instruction=system_instruction,
-                    temperature=0.85 if mode == "public_banter" else 0.7
+                    temperature=0.85 if mode == "public_banter" else 0.7,
+                    images=image_payloads if image_payloads else None
                 )
 
                 if reply:
                     # Update memory buffer with turn
                     self.memory.add_turn(context_key, "user", clean_content, author_name=author_display)
-                    self.memory.add_turn(context_key, "assistant", reply, author_name="Raziel")
+                    self.memory.add_turn(context_key, "assistant", reply, author_name="Frielle")
                     self.memory.record_user_interaction(
                         message.author.id,
                         author_display,
@@ -158,7 +226,7 @@ class CompanionCog(commands.Cog):
             except Exception as ex:
                 logger.error(f"Companion response failed: {ex}")
                 await message.reply(
-                    "lost my train of thought for a sec, my bad. what was that?",
+                    "Forgive me, I was lost in thought for a moment. What were you saying?",
                     mention_author=False
                 )
 

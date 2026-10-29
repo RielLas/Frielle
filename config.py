@@ -50,8 +50,8 @@ if not MONGO_URI and not db_settings.get("mongo_uri", "").startswith("${"):
     MONGO_URI = db_settings.get("mongo_uri", "")
 
 DB_NAME: str = os.getenv("DB_NAME", db_settings.get("db_name", "ciel_cluster"))
-COGNITIVE_COLLECTION: str = os.getenv("COGNITIVE_COLLECTION", db_settings.get("cognitive_collection", "raziel_cognitive_archive"))
-CHAT_HISTORY_COLLECTION: str = os.getenv("CHAT_HISTORY_COLLECTION", db_settings.get("chat_history_collection", "raziel_chat_history"))
+COGNITIVE_COLLECTION: str = os.getenv("COGNITIVE_COLLECTION", db_settings.get("cognitive_collection", "ciel_cognitive_archive"))
+CHAT_HISTORY_COLLECTION: str = os.getenv("CHAT_HISTORY_COLLECTION", db_settings.get("chat_history_collection", "ciel_chat_history"))
 
 # ---------------------------------------------------------------------------
 # AI Architecture: Gemini Flash-Lite Priority Stack

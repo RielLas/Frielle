@@ -66,34 +66,12 @@ class MemoryManager:
 
         try:
             from motor.motor_asyncio import AsyncIOMotorClient
-            self.db_client = AsyncIOMotorClient(MONGO_URI, serverSelectionTimeoutMS=10000)
+            self.db_client = AsyncIOMotorClient(MONGO_URI, serverSelectionTimeoutMS=5000)
             self.db = self.db_client[DB_NAME]
             self.collection = self.db[COGNITIVE_COLLECTION]
-
-            # Fetch remote records to synchronize into local memory cache
-            cursor = self.collection.find({})
-            remote_count = 0
-            async for doc in cursor:
-                uid = str(doc.get("user_id") or doc.get("_id"))
-                if uid:
-                    # Merge remote records with local cache
-                    if uid not in self.user_records:
-                        self.user_records[uid] = {
-                            "name": doc.get("name", ""),
-                            "affinity": doc.get("affinity", 0),
-                            "notes": doc.get("notes", {}),
-                            "topics": doc.get("topics", [])
-                        }
-                    else:
-                        local_notes = self.user_records[uid].setdefault("notes", {})
-                        local_notes.update(doc.get("notes", {}))
-                        self.user_records[uid]["affinity"] = max(
-                            self.user_records[uid].get("affinity", 0),
-                            doc.get("affinity", 0)
-                        )
-                    remote_count += 1
-
-            logger.info(f"Connected to MongoDB Atlas ({DB_NAME}.{COGNITIVE_COLLECTION}). Synced {remote_count} records.")
+            # Ping database to confirm connection
+            await self.db.command("ping")
+            logger.info(f"Connected to MongoDB Atlas ({DB_NAME}.{COGNITIVE_COLLECTION}).")
             return True
         except Exception as e:
             logger.warning(f"Failed to connect to MongoDB Atlas: {e}. Falling back to local storage.")
@@ -322,25 +300,57 @@ class MemoryManager:
             except Exception:
                 pass
 
-    def get_user_profile_summary(self, user_id: int) -> str:
-        """Formats stored knowledge about a user into an empathetic prompt addendum."""
+    async def get_ciel_profile(self, user_id: int) -> Dict[str, List[str]]:
+        """Queries ciel_cognitive_archive in real-time for personal facts, intel, and lore."""
         u_str = str(user_id)
-        rec = self.user_records.get(u_str)
-        if not rec:
-            return ""
+        results = {"personal": [], "intel": []}
+        if self.collection is None:
+            return results
+        try:
+            cursor = self.collection.find({"owner_id": u_str}).limit(20)
+            async for doc in cursor:
+                mtype = doc.get("memory_type", "personal")
+                content = doc.get("content") or doc.get("remark") or ""
+                clean_txt = sanitize_memory_field(content, max_len=120)
+                if clean_txt:
+                    if mtype == "personal":
+                        results["personal"].append(clean_txt)
+                    else:
+                        results["intel"].append(clean_txt)
+        except Exception as e:
+            logger.debug(f"Failed fetching Ciel cognitive profile for {user_id}: {e}")
+        return results
+
+    def get_user_profile_summary(self, user_id: int, ciel_memories: Optional[Dict[str, List[str]]] = None) -> str:
+        """Formats stored knowledge and shared Ciel cognitive archive into an aristocratic prompt context."""
+        u_str = str(user_id)
+        rec = self.user_records.get(u_str, {})
 
         notes = rec.get("notes", {})
         affinity = rec.get("affinity", 0)
         topics = rec.get("topics", [])
-
         user_name = sanitize_memory_field(rec.get('name', 'User'), max_len=32)
-        lines = [f"[KNOWLEDGE OF {user_name}] (Affinity Tier: {affinity} interactions)"]
+
+        lines = [f"[KNOWLEDGE OF {user_name}] (Connection Level: {affinity} interactions)"]
+
+        # 1. Ciel's Shared Cognitive Archive (Personal facts & claims)
+        if ciel_memories:
+            personal = ciel_memories.get("personal", [])
+            intel = ciel_memories.get("intel", [])
+            if personal:
+                for p in personal[:5]:
+                    lines.append(f"- Known trait / lore: {sanitize_memory_field(p, 100)}")
+            if intel:
+                for i in intel[:3]:
+                    lines.append(f"- Server record: {sanitize_memory_field(i, 100)}")
+
+        # 2. Local / ongoing notes
         if notes:
             for k, v in list(notes.items())[:MAX_USER_NOTES]:
                 lines.append(f"- {sanitize_memory_field(k, 24)}: {sanitize_memory_field(v, 80)}")
         if topics:
-            clean_topics = [sanitize_memory_field(t, 24) for t in topics[:5] if t]
+            clean_topics = [sanitize_memory_field(t, 24) for t in topics[:4] if t]
             if clean_topics:
-                lines.append(f"- Frequently discussed topics: {', '.join(clean_topics)}")
+                lines.append(f"- Familiar topics: {', '.join(clean_topics)}")
 
         return "\n".join(lines)

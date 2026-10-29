@@ -11,10 +11,10 @@ from discord.ext import commands, tasks
 logger = logging.getLogger("Raziel.Presence")
 
 STATUS_ROTATION = [
-    ("chilling | mention or DM me", discord.ActivityType.watching),
-    ("keeping my big sis Ciel from banning everyone", discord.ActivityType.playing),
-    ("listening to chat chaos", discord.ActivityType.listening),
-    ("teasing Ciel", discord.ActivityType.playing)
+    ("sipping afternoon tea | mention or DM me", discord.ActivityType.playing),
+    ("watching Ciel stress over paperwork with amusement", discord.ActivityType.watching),
+    ("enjoying the gentle chaos of Wonderland", discord.ActivityType.listening),
+    ("carefree days in the rose garden", discord.ActivityType.playing)
 ]
 
 

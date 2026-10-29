@@ -9,8 +9,8 @@
   "database": {
     "mongo_uri": "${MONGO_URI}",
     "db_name": "ciel_cluster",
-    "cognitive_collection": "raziel_cognitive_archive",
-    "chat_history_collection": "raziel_chat_history"
+    "cognitive_collection": "ciel_cognitive_archive",
+    "chat_history_collection": "ciel_chat_history"
   },
   "ai_module": {
     "default_model": "gemini-3.5-flash-lite",

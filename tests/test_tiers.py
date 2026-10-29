@@ -117,11 +117,11 @@ class TestRazielTiers(unittest.TestCase):
         self.assertIn("camaraderie", instruction.lower())
 
     def test_general_prompt_is_humane_and_charming(self):
-        mode, instruction = detect_mode("Hey Raziel, look at this sketch!", user_tier="general")
+        mode, instruction = detect_mode("Hey Frielle, look at this sketch!", user_tier="general")
         self.assertEqual(mode, "public_banter")
-        self.assertIn("warm, charming", instruction)
-        self.assertIn("For the girls", instruction)
-        self.assertIn("For the guys", instruction)
+        self.assertIn("carefree", instruction.lower())
+        self.assertIn("poised", instruction.lower())
+        self.assertIn("noble lady", instruction.lower())
 
     def test_safe_harbor_mode_trigger(self):
         mode, instruction = detect_mode("I am so burned out and exhausted today...", user_tier="general")

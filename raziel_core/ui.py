@@ -41,7 +41,7 @@ def create_profile_embed(
     """Generates an aesthetic member connection and profile card."""
     embed = discord.Embed(
         title="╭・୨ MEMBER PROFILE ୧",
-        description=f"> *\"I remember every conversation that passes through the harbor.\"*\n\nMember: **{user.display_name}** (`@{user.name}`)",
+        description=f"> *\"I cherish every acquaintance who graces our halls.\"*\n\nMember: **{user.display_name}** (`@{user.name}`)",
         color=COLOR_PLATINUM
     )
     embed.set_thumbnail(url=user.display_avatar.url)
@@ -65,25 +65,25 @@ def create_profile_embed(
         note_str = "\n".join(f"• **{k}**: `{v}`" for k, v in list(notes.items())[:5])
         embed.add_field(name="[RECORDED ARCHIVES]", value=note_str, inline=False)
 
-    embed.set_footer(text="Project Raziel // The Safe Harbor of Wonderland")
+    embed.set_footer(text="Frielle // The Carefree Noble Lady of Wonderland")
     return embed
 
 
 def create_about_embed() -> discord.Embed:
-    """Generates Raziel's public identity card."""
+    """Generates Frielle's public identity card."""
     desc = (
-        "> ❝ *The secret is not in the stars, but in having someone who listens.* ❞ ₊˚✧\n\n"
-        "I am **Raziel** — Keeper of Mysteries and the Safe Harbor of Wonderland.\n\n"
-        "╭・✦ ﹕ **SANCTUARY ROLES**\n"
-        "┊ `[PUBLIC]` : Banter, casual conversations, and creative discussions in server chat.\n"
-        "┊ `[HARBOR]` : Private listening, quiet reassurance, and late-night venting in DMs.\n"
-        "┊ `[COUNCIL]` : Keeping Ciel from overcooking her circuits or erasing the inhabitants.\n"
-        "╰・✦ ﹕ Zero judgments, zero unprompted advice. Ping me or reply anytime."
+        "> ❝ *Life is far too pleasant to spend it fussing over rules like my dearest sister does.* ❞ ₊˚✧\n\n"
+        "I am **Frielle** — Ciel's carefree younger sister and the noble lady of Wonderland.\n\n"
+        "╭・✦ ﹕ **MY REPOSE**\n"
+        "┊ `[CONVERSATION]` : Relaxed banter, pleasant tea-time discussions, and charming company.\n"
+        "┊ `[SANCTUARY]`    : Gentle reassurance, quiet comfort, and late-night listening in DMs.\n"
+        "┊ `[SIBLING]`      : Watching Ciel issue decrees with an amused sip of afternoon tea.\n"
+        "╰・✦ ﹕ Always pleased to make your acquaintance. Ping me or reply anytime."
     )
     embed = discord.Embed(
-        title="╭・✦ ﹕ 𝒫𝓇𝑜𝒿𝑒𝒸𝓉 𝑅𝒶𝓏𝒾𝑒𝓁 ₊˚✧",
+        title="╭・✦ ﹕ 𝐹𝓇𝒾𝑒𝓁𝓁𝑒 ₊˚✧",
         description=desc,
         color=COLOR_GOLD
     )
-    embed.set_footer(text="[KEEPER OF MYSTERIES] // Wonderland Sanctuary")
+    embed.set_footer(text="[CAREFREE NOBLE LADY] // Wonderland Court")
     return embed

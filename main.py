@@ -12,10 +12,13 @@ import logging
 import discord
 from discord.ext import commands
 
-from config import DISCORD_TOKEN, COMMAND_PREFIX, DEFAULT_MODEL, GEMINI_API_KEYS
+from config import DISCORD_TOKEN, COMMAND_PREFIX, DEFAULT_MODEL, GEMINI_API_KEYS, COGNITIVE_COLLECTION
 from raziel_core.ai_engine import GeminiEngine
 from raziel_core.memory import MemoryManager
 from raziel_core.tiers import TierManager
+
+from raziel_core.synapse_mesh import SynapseMesh
+from raziel_core.narrative import NarrativeEngine
 
 # Logging setup
 logging.basicConfig(
@@ -52,23 +55,30 @@ bot.ai_engine = GeminiEngine(api_keys=GEMINI_API_KEYS, default_model=DEFAULT_MOD
 bot.memory = MemoryManager()
 bot.tier_manager = TierManager()
 bot.tiers = bot.tier_manager
+bot.synapse_mesh = SynapseMesh()
+bot.narrative_engine = NarrativeEngine()
 
 INITIAL_EXTENSIONS = [
     "cogs.companion",
-    "cogs.cross_resonance",
     "cogs.presence",
-    "cogs.commands"
+    "cogs.commands",
+    "cogs.social",
+    "cogs.utility",
+    "cogs.recap",
+    "cogs.engagement",
+    # "cogs.actions",  # Disabled for now per user request
+    "cogs.persona"
 ]
 
 
 @bot.event
 async def on_ready():
     logger.info("=" * 60)
-    logger.info(f"✨ PROJECT RAZIEL ONLINE // Logged in as: {bot.user} (ID: {bot.user.id})")
+    logger.info(f"✨ PROJECT FRIELLE ONLINE // Logged in as: {bot.user} (ID: {bot.user.id})")
     logger.info(f"🧠 AI Engine: Gemini ({bot.ai_engine.model}) | Keys Loaded: {len(bot.ai_engine.api_keys)}")
     db_mode = "MongoDB Atlas" if bot.memory.collection is not None else "Local JSON"
-    logger.info(f"💾 Memory Subsystem: {db_mode}")
-    logger.info("🛡️ Safe Harbor, Tier Matrix & Cross-Bot Resonance Active")
+    logger.info(f"💾 Cognitive Memory Subsystem: {db_mode} ({COGNITIVE_COLLECTION})")
+    logger.info("👑 Carefree Noble Lady Persona & Tier Matrix Active")
 
     try:
         synced = await bot.tree.sync()
@@ -84,6 +94,9 @@ async def main():
     await bot.memory.init_database()
     if bot.memory.db is not None:
         await bot.tier_manager.sync_privileges_from_db(bot.memory.db)
+        bot.synapse_mesh.collection = bot.memory.db["ciel_neural_synapses"]
+        await bot.synapse_mesh.warm_cache()
+        bot.narrative_engine.db = bot.memory.db
 
     async with bot:
         for ext in INITIAL_EXTENSIONS:

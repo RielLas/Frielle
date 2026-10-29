@@ -42,18 +42,25 @@ class RazielCommandsCog(commands.Cog):
     # ---------------------------------------------------------------------------
     # Core User Commands
     # ---------------------------------------------------------------------------
-    @app_commands.command(name="about", description="Learn about Raziel and his role as the Safe Harbor.")
+    @app_commands.command(name="about", description="Learn about Frielle, the carefree noble lady of Wonderland.")
     async def about_cmd(self, interaction: discord.Interaction):
         embed = create_about_embed()
         await interaction.response.send_message(embed=embed)
 
-    @app_commands.command(name="profile", description="Check your tier standing and what Raziel remembers about you.")
+    @app_commands.command(name="profile", description="Check your court standing and what Frielle remembers about you.")
     async def profile_cmd(self, interaction: discord.Interaction):
         u_str = str(interaction.user.id)
         rec = self.memory.user_records.get(u_str, {})
         affinity = rec.get("affinity", 0)
-        notes = rec.get("notes", {})
-        topics = rec.get("topics", [])
+        notes = dict(rec.get("notes", {}))
+        topics = list(rec.get("topics", []))
+
+        # Query Ciel's cognitive archive records to enrich profile notes
+        ciel_mems = await self.memory.get_ciel_profile(interaction.user.id)
+        for p in ciel_mems.get("personal", [])[:3]:
+            notes[f"Lore"] = p
+        for i in ciel_mems.get("intel", [])[:2]:
+            notes[f"Court Intel"] = i
 
         # Resolve tier
         _, tier_label, tier_badge = self.tiers.resolve_tier(interaction.user)
@@ -66,7 +73,7 @@ class RazielCommandsCog(commands.Cog):
             notes=notes,
             recent_topics=topics
         )
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        await interaction.response.send_message(embed=embed)
 
     @app_commands.command(name="remember", description="Tell Raziel a detail or preference to remember about you.")
     @app_commands.describe(key="The topic or trait (e.g. 'favorite anime', 'hobbies', 'timezone')", value="The detail to remember")

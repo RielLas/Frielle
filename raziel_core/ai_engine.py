@@ -92,10 +92,12 @@ class GeminiEngine:
         self,
         prompt: str,
         system_instruction: str,
-        temperature: float = 0.8
+        temperature: float = 0.8,
+        images: Optional[List[Dict[str, Any]]] = None
     ) -> str:
         """
         Generates content using candidate Gemini Flash-Lite models.
+        Supports multimodal image inputs (dict with 'data' bytes and 'mime_type').
         Automatically cycles keys and fallbacks if rate limits occur.
         """
         keys = self._get_active_keys()
@@ -119,25 +121,39 @@ class GeminiEngine:
                 except Exception:
                     config = {"system_instruction": system_instruction, "temperature": temperature}
 
+                contents = []
+                if images:
+                    try:
+                        from google.genai import types as genai_types
+                        for img in images:
+                            contents.append(
+                                genai_types.Part.from_bytes(
+                                    data=img["data"],
+                                    mime_type=img.get("mime_type", "image/jpeg")
+                                )
+                            )
+                    except Exception as img_err:
+                        logger.warning(f"Failed formatting multimodal parts: {img_err}")
+                contents.append(prompt)
+
                 try:
                     async def _call():
                         if hasattr(client, "aio") and hasattr(client.aio, "models"):
                             call_res = client.aio.models.generate_content(
                                 model=model_name,
-                                contents=[prompt],
+                                contents=contents,
                                 config=config
                             )
                             if hasattr(call_res, "__await__"):
                                 return await call_res
                             return call_res
                         elif hasattr(client, "models"):
-                            # Protect Discord Gateway heartbeat by offloading sync call to thread pool
                             loop = asyncio.get_running_loop()
                             return await loop.run_in_executor(
                                 None,
                                 lambda: client.models.generate_content(
                                     model=model_name,
-                                    contents=[prompt],
+                                    contents=contents,
                                     config=config
                                 )
                             )
@@ -147,12 +163,12 @@ class GeminiEngine:
                                 None,
                                 lambda: client.generate_content(
                                     model=model_name,
-                                    contents=[prompt],
+                                    contents=contents,
                                     config=config
                                 )
                             )
 
-                    res = await asyncio.wait_for(_call(), timeout=9.0)
+                    res = await asyncio.wait_for(_call(), timeout=12.0)
                     try:
                         raw_text = getattr(res, "text", "") or ""
                     except Exception:
@@ -163,7 +179,7 @@ class GeminiEngine:
                         return cleaned
 
                 except asyncio.TimeoutError:
-                    logger.warning(f"Model '{model_name}' timed out after 9.0s. Trying next fallback.")
+                    logger.warning(f"Model '{model_name}' timed out after 12.0s. Trying next fallback.")
                     continue
                 except Exception as err:
                     if is_rate_limited(err):
